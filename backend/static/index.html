@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="sr">
+
+<head>
+  <meta charset="UTF-8">
+  <title>MiniC Compiler</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Syne:wght@400;700;800&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0d0f12;
+      --surface: #13161b;
+      --panel: #181c22;
+      --border: #252a33;
+      --border-hi: #3a4150;
+      --accent: #4af0b0;
+      --accent-dim: #1a5c43;
+      --text: #c8cdd6;
+      --text-dim: #4e5562;
+      --text-muted: #4a5568;
+      --lnum: #3a4150;
+      --lnum-hi: #5a6475;
+      --error: #f05a5a;
+      --error-dim: #3d1a1a;
+      --block-0: #181c22;
+      --block-1: #1c2128;
+      --block-2: #1a1f26;
+      --pc-bg: #0d2e1a;
+      --pc-border: #4af0b0;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-ui: 'Syne', sans-serif;
+      --editor-w: 750px;
+      --editor-h: 520px;
+      --anim: 0.55s cubic-bezier(0.77, 0, 0.18, 1);
+    }
+
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+    }
+
+    #compilerSection,
+    #simSection {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      will-change: transform, opacity;
+      transition: transform var(--anim), opacity var(--anim);
+    }
+
+    /* Početno stanje: kompajler vidljiv, sim skriven ispod */
+    #compilerSection {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #compilerSection.slide-out {
+      transform: translateY(-100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #simSection {
+      transform: translateY(100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #simSection.slide-in {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #compilerSection {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: calc(var(--editor-w) * 2 + 32px);
+    }
+
+    .header {
+      width: 100%;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #fff;
+    }
+
+    .header h1 span {
+      color: var(--accent);
+    }
+
+    .editors {
+      display: flex;
+      gap: 16px;
+      width: 100%;
+    }
+
+    .editor-panel {
+      display: flex;
+      flex-direction: column;
+      width: var(--editor-w);
+      flex-shrink: 0;
+    }
+
+    .panel-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding: 0 0 7px 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .panel-label .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.7;
+    }
+
+    .panel-label .dot.out {
+      background: #6ea8f7;
+    }
+
+    .editor-box {
+      display: flex;
+      width: var(--editor-w);
+      height: var(--editor-h);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+
+    .editor-box:focus-within {
+      border-color: var(--border-hi);
+      box-shadow: 0 0 0 1px var(--border-hi), 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .editor-box.error-state {
+      border-color: var(--error-dim);
+    }
+
+    .gutter {
+      width: 44px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .gutter-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      padding: 0 10px 0 0;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+    }
+
+    .ln {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 21px;
+      color: var(--lnum);
+      min-width: 20px;
+      text-align: right;
+    }
+
+    .ln.active {
+      color: var(--lnum-hi);
+    }
+
+    textarea {
+      flex: 1;
+      resize: none;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 21px;
+      padding: 14px 14px 14px 10px;
+      overflow-y: scroll;
+      overflow-x: auto;
+      white-space: pre;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-hi) transparent;
+      caret-color: var(--accent);
+      tab-size: 4;
+    }
+
+    textarea::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    textarea::-webkit-scrollbar-thumb {
+      background: var(--border-hi);
+      border-radius: 3px;
+    }
+
+    textarea[readonly] {
+      color: #8fb4e8;
+      caret-color: transparent;
+    }
+
+    textarea.error-text {
+      color: var(--error);
+    }
+
+    textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .asm-line {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 21px;
+      padding: 0 14px 0 10px;
+      white-space: pre;
+      min-width: max-content;
+    }
+
+    .b0 {
+      background: var(--block-0);
+    }
+
+    .b1 {
+      background: var(--block-1);
+    }
+
+    .b2 {
+      background: var(--block-2);
+    }
+
+    #outputArea {
+      flex: 1;
+      overflow-y: scroll;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-hi) transparent;
+      padding: 14px 0;
+      color: #8fb4e8;
+    }
+
+    #outputArea::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #outputArea::-webkit-scrollbar-thumb {
+      background: var(--border-hi);
+      border-radius: 3px;
+    }
+
+    #outputArea.error-text {
+      color: var(--error);
+    }
+
+    #outputArea.error-text .asm-line {
+      background: transparent;
+    }
+
+    #outputArea .placeholder {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 21px;
+      padding: 0 14px 0 10px;
+      color: var(--text-muted);
+    }
+
+    .btn-row {
+      margin-top: 18px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+    }
+
+    button {
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 12px 48px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: var(--accent);
+      color: #001a10;
+      transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+      box-shadow: 0 0 20px rgba(74, 240, 176, 0.25);
+    }
+
+    button:hover:not(:disabled) {
+      opacity: 0.9;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 24px rgba(74, 240, 176, 0.35);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    button.try-again {
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border-hi);
+      box-shadow: none;
+    }
+
+    button.try-again:hover:not(:disabled) {
+      color: var(--text);
+      border-color: var(--text-dim);
+      box-shadow: none;
+    }
+
+    button.compiling {
+      background: var(--accent-dim);
+      color: var(--accent);
+      cursor: wait;
+    }
+
+    button.simulate-btn {
+      background: #1a3a6e;
+      color: #6ea8f7;
+      border: 1px solid #3a5a9e;
+      box-shadow: none;
+    }
+
+    button.simulate-btn:hover:not(:disabled) {
+      background: #1e4480;
+      border-color: #5a7abf;
+      box-shadow: none;
+    }
+
+    button.back-btn {
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border-hi);
+      box-shadow: none;
+    }
+
+    button.back-btn:hover:not(:disabled) {
+      color: var(--text);
+      border-color: var(--text-dim);
+      box-shadow: none;
+    }
+
+    button.next-btn {
+      background: var(--accent);
+      color: #001a10;
+    }
+
+    /* Sim layout: flex kolona koja puni ceo ekran */
+    #simSection {
+      display: flex;
+      flex-direction: column;
+      padding: 24px 28px 20px;
+    }
+
+    .sim-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+      flex-shrink: 0;
+    }
+
+    .sim-header h2 {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .sim-header h2 span {
+      color: var(--accent);
+    }
+
+    .sim-btn-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    #haltBanner,
+    #simErrorBanner {
+      display: none;
+      border-radius: 8px;
+      padding: 9px 14px;
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    #haltBanner {
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+
+    #simErrorBanner {
+      background: var(--error-dim);
+      border: 1px solid var(--error);
+      color: var(--error);
+    }
+
+    /* Telo zauzima preostali prostor — overflow:hidden sprečava svaki scroll izvan boxova */
+    .sim-body {
+      flex: 1;
+      display: flex;
+      gap: 20px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* Leva kolona — flex kolona, kod dobija sav preostali prostor */
+    .sim-code-wrap {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sim-section-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding: 0 0 6px 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    /* Scroll SAMO ovde — nikada na body */
+    #simCode {
+      flex: 1;
+      min-height: 0;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow-y: auto;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 22px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-hi) transparent;
+    }
+
+    #simCode::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #simCode::-webkit-scrollbar-thumb {
+      background: var(--border-hi);
+      border-radius: 3px;
+    }
+
+    .sim-code-line {
+      display: flex;
+      align-items: stretch;
+      white-space: pre;
+    }
+
+    .sim-code-line.pc-line {
+      background: var(--pc-bg);
+      border-left: 2px solid var(--pc-border);
+    }
+
+    .sc-num {
+      min-width: 44px;
+      text-align: right;
+      padding: 0 10px 0 0;
+      color: var(--lnum);
+      background: var(--surface);
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      user-select: none;
+      line-height: 22px;
+    }
+
+    .pc-line .sc-num {
+      color: var(--lnum-hi);
+      background: #0a1f12;
+      border-right-color: var(--accent-dim);
+    }
+
+    .sc-arrow {
+      width: 20px;
+      text-align: center;
+      flex-shrink: 0;
+      color: var(--accent);
+      padding: 0 2px;
+      line-height: 22px;
+    }
+
+    .sc-text {
+      padding: 0 14px 0 4px;
+      color: #8fb4e8;
+      line-height: 22px;
+    }
+
+    .pc-line .sc-text {
+      color: #a8d8a0;
+    }
+
+    /* Desna kolona — fiksna širina, sopstveni scroll */
+    .sim-tables {
+      width: 440px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      min-height: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-hi) transparent;
+    }
+
+    .sim-tables::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .sim-tables::-webkit-scrollbar-thumb {
+      background: var(--border-hi);
+      border-radius: 3px;
+    }
+
+    .sim-table-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .sim-table-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding: 7px 12px 6px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    td,
+    th {
+      padding: 4px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    td:last-child,
+    th:last-child {
+      text-align: right;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    th {
+      color: var(--text-dim);
+      font-weight: 400;
+      font-size: 10px;
+      background: var(--surface);
+      padding: 4px 10px;
+    }
+
+    .reg-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .reg-cell {
+      padding: 4px 10px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .reg-cell:nth-child(4n) {
+      border-right: none;
+    }
+
+    .reg-cell:nth-last-child(-n+4) {
+      border-bottom: none;
+    }
+
+    .reg-cell .rname {
+      color: var(--text-dim);
+      font-size: 10px;
+      display: block;
+    }
+
+    .reg-cell .rval {
+      color: #8fb4e8;
+    }
+
+    .reg-cell.changed .rval {
+      color: var(--error);
+    }
+
+    .pc-flags-row {
+      padding: 7px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .pc-flags-row span {
+      color: var(--text-dim);
+    }
+
+    .pc-flags-row span b {
+      color: #8fb4e8;
+      font-weight: normal;
+    }
+
+    .pc-flags-row span b.f1 {
+      color: var(--accent);
+    }
+
+    .empty-note {
+      padding: 10px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .stack-sp {
+      color: var(--accent) !important;
+    }
+
+    .stack-fp {
+      color: #f0c040 !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ══════════════════════════════════════════════════════
+       EKRAN 1: KOMPAJLER
+  ══════════════════════════════════════════════════════ -->
+  <div id="compilerSection">
+    <div class="app">
+      <header class="header">
+        <h1>Mini<span>C</span> Compiler</h1>
+      </header>
+
+      <div class="editors">
+        <div class="editor-panel">
+          <div class="panel-label"><span class="dot"></span>miniC kod</div>
+          <div class="editor-box" id="inputBox">
+            <div class="gutter" id="inputGutter">
+              <div class="gutter-inner" id="inputLines"></div>
+            </div>
+            <textarea id="inputCode" spellcheck="false" placeholder="// Unesite miniC kod ovde..."></textarea>
+          </div>
+        </div>
+        <div class="editor-panel">
+          <div class="panel-label"><span class="dot out"></span>Asemblerski izlaz</div>
+          <div class="editor-box" id="outputBox">
+            <div class="gutter" id="outputGutter">
+              <div class="gutter-inner" id="outputLines"></div>
+            </div>
+            <div id="outputArea">
+              <span class="placeholder">// Ovde ce se prikazati asemblerski kod...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button id="mainBtn">Compile</button>
+        <button id="simBtn" class="simulate-btn" style="display:none">Simuliraj</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       EKRAN 2: SIMULATOR
+  ══════════════════════════════════════════════════════ -->
+  <div id="simSection">
+
+    <div class="sim-header">
+      <h2>Hipsim <span>Simulator</span></h2>
+      <div class="sim-btn-row">
+        <button id="goBackBtn" class="back-btn">&#8592; Go Back</button>
+        <button id="nextBtn" class="next-btn">Sledeca instrukcija &#8594;</button>
+      </div>
+    </div>
+
+    <div id="haltBanner">Program zavrsen. Exit code (%13): <b id="exitCodeVal">?</b></div>
+    <div id="simErrorBanner">Greska simulatora: <b id="simErrorMsg"></b></div>
+
+    <div class="sim-body">
+
+      <div class="sim-code-wrap">
+        <div class="sim-section-label">
+          <span class="dot" style="background:#6ea8f7;opacity:.7"></span>Asemblerski kod
+        </div>
+        <div id="simCode"></div>
+      </div>
+
+      <div class="sim-tables">
+
+        <div class="sim-table-box">
+          <div class="sim-table-title">Registri</div>
+          <div class="pc-flags-row" id="pcFlagsRow">
+            <span>PC: <b id="pcVal">0</b></span>
+            <span>Flags [ZSCO]: <b id="flagZ">0</b><b id="flagS">0</b><b id="flagC">0</b><b id="flagO">0</b></span>
+          </div>
+          <div class="reg-grid" id="regGrid"></div>
+        </div>
+
+        <div class="sim-table-box">
+          <div class="sim-table-title">Globalne promenljive</div>
+          <div id="globalsTable"></div>
+        </div>
+
+        <div class="sim-table-box">
+          <div class="sim-table-title">Stek</div>
+          <div id="stackTable"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── State ─────────────────────────────────────────────────────────────────────
+    let appState = 'idle';
+    let simSessionId = null;
+    let prevRegs = null;
+
+    const inputCode = document.getElementById('inputCode');
+    const outputArea = document.getElementById('outputArea');
+    const mainBtn = document.getElementById('mainBtn');
+    const simBtn = document.getElementById('simBtn');
+    const outputBox = document.getElementById('outputBox');
+    const compSec = document.getElementById('compilerSection');
+    const simSec = document.getElementById('simSection');
+
+    // ── Tranzicija ekrana ─────────────────────────────────────────────────────────
+    // Oba ekrana su position:fixed — nema globalnog scrola ni "bekstva"
+    function showSim() {
+      compSec.classList.add('slide-out');
+      simSec.classList.add('slide-in');
+    }
+    function showCompiler() {
+      compSec.classList.remove('slide-out');
+      simSec.classList.remove('slide-in');
+    }
+
+    // ── Line-number helpers ───────────────────────────────────────────────────────
+    function syncGutter(el, linesId) {
+      const inner = document.getElementById(linesId);
+      const isTA = (el.tagName === 'TEXTAREA');
+      const count = isTA
+        ? el.value.split('\n').length
+        : Math.max(el.querySelectorAll('.asm-line').length, 1);
+      const active = (isTA && document.activeElement === el)
+        ? el.value.substring(0, el.selectionStart).split('\n').length
+        : -1;
+      inner.innerHTML = '';
+      for (let i = 1; i <= count; i++) {
+        const span = document.createElement('span');
+        span.className = 'ln' + (i === active ? ' active' : '');
+        span.textContent = i;
+        inner.appendChild(span);
+      }
+      inner.style.top = (14 - el.scrollTop) + 'px';
+    }
+
+    function bindEditor(ta, linesId) {
+      ta.addEventListener('scroll', () => syncGutter(ta, linesId));
+      ['input', 'keyup', 'click', 'focus', 'blur', 'selectionchange']
+        .forEach(ev => ta.addEventListener(ev, () => syncGutter(ta, linesId)));
+      syncGutter(ta, linesId);
+    }
+    bindEditor(inputCode, 'inputLines');
+
+    // ── ASM block coloring ────────────────────────────────────────────────────────
+    const JUMP_RE = /^\s+(?:JMP|RET|J[NEQLTGE]{1,2})\b/i;
+    const LABEL_RE = /^\s*[@\w]+:\s*$/;
+
+    function parseBlocks(lines) {
+      const blocks = []; let bi = 0; let first = true; let prevJump = false;
+      for (const line of lines) {
+        const empty = line.trim() === '';
+        const isLab = !empty && LABEL_RE.test(line);
+        const isJmp = !empty && JUMP_RE.test(line);
+        if (!empty) { if (!first && (isLab || prevJump)) bi = (bi + 1) % 3; first = false; }
+        blocks.push({ line, block: bi });
+        if (!empty) prevJump = isJmp;
+      }
+      return blocks;
+    }
+
+    function renderAsm(asmText) {
+      const lines = asmText.split('\n');
+      const parsed = parseBlocks(lines);
+      outputArea.innerHTML = '';
+      parsed.forEach(({ line, block }) => {
+        const div = document.createElement('div');
+        div.className = 'asm-line b' + block;
+        div.textContent = line === '' ? ' ' : line;
+        outputArea.appendChild(div);
+      });
+      syncGutter(outputArea, 'outputLines');
+    }
+
+    // ── Tastatura: TAB + Enter auto-indent ────────────────────────────────────────
+    inputCode.addEventListener('keydown', (e) => {
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const s = inputCode.selectionStart, end = inputCode.selectionEnd;
+        inputCode.value = inputCode.value.substring(0, s) + '    ' + inputCode.value.substring(end);
+        inputCode.selectionStart = inputCode.selectionEnd = s + 4;
+        syncGutter(inputCode, 'inputLines');
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const s = inputCode.selectionStart;
+        const text = inputCode.value;
+        const lineStart = text.lastIndexOf('\n', s - 1) + 1;
+        const indent = text.substring(lineStart, s).match(/^(\s*)/)[1];
+        inputCode.value = text.substring(0, s) + '\n' + indent + text.substring(s);
+        inputCode.selectionStart = inputCode.selectionEnd = s + 1 + indent.length;
+        syncGutter(inputCode, 'inputLines');
+      }
+    });
+
+    // ── Compile logika ────────────────────────────────────────────────────────────
+    mainBtn.addEventListener('click', () => {
+      if (appState === 'idle') doCompile();
+      else if (appState === 'success' || appState === 'error') doTryAgain();
+    });
+    simBtn.addEventListener('click', () => doSimulate());
+
+    async function doCompile() {
+      const code = inputCode.value;
+      if (!code.trim()) return;
+
+      appState = 'compiling';
+      mainBtn.disabled = true;
+      mainBtn.textContent = 'Compiling…';
+      mainBtn.className = 'compiling';
+      simBtn.style.display = 'none';
+      outputArea.innerHTML = '<span class="placeholder">// Ovde ce se prikazati asemblerski kod...</span>';
+      outputBox.classList.remove('error-state');
+      outputArea.classList.remove('error-text');
+      syncGutter(outputArea, 'outputLines');
+
+      try {
+        const resp = await fetch('/compile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          renderAsm(data.asm);
+          appState = 'success';
+          outputBox.classList.remove('error-state');
+          outputArea.classList.remove('error-text');
+          simBtn.style.display = 'inline-block';
+        } else {
+          outputArea.innerHTML = '<span class="placeholder">' + escHtml(data.error) + '</span>';
+          appState = 'error';
+          outputBox.classList.add('error-state');
+          outputArea.classList.add('error-text');
+          simBtn.style.display = 'none';
+        }
+      } catch (err) {
+        outputArea.innerHTML = '<span class="placeholder">Greška pri komunikaciji sa serverom:\n' + err.message + '</span>';
+        appState = 'error';
+        outputBox.classList.add('error-state');
+        outputArea.classList.add('error-text');
+        simBtn.style.display = 'none';
+      }
+
+      syncGutter(outputArea, 'outputLines');
+      inputCode.readOnly = true;
+      mainBtn.disabled = false;
+      mainBtn.textContent = 'Try Again';
+      mainBtn.className = 'try-again';
+    }
+
+    function doTryAgain() {
+      if (appState === 'success') {
+        inputCode.value = '';
+        syncGutter(inputCode, 'inputLines');
+      }
+      outputArea.innerHTML = '<span class="placeholder">// Ovde ce se prikazati asemblerski kod...</span>';
+      outputBox.classList.remove('error-state');
+      outputArea.classList.remove('error-text');
+      syncGutter(outputArea, 'outputLines');
+      inputCode.readOnly = false;
+      mainBtn.textContent = 'Compile';
+      mainBtn.className = '';
+      simBtn.style.display = 'none';
+      appState = 'idle';
+    }
+
+    // ── Simulator logika ──────────────────────────────────────────────────────────
+    async function doSimulate() {
+      try {
+        const resp = await fetch('/simulate/init', { method: 'POST' });
+        if (!resp.ok) {
+          const err = await resp.json();
+          alert('Greška: ' + (err.detail || 'Nepoznata greška'));
+          return;
+        }
+        const data = await resp.json();
+        simSessionId = data.session_id;
+        prevRegs = null;
+
+        document.getElementById('haltBanner').style.display = 'none';
+        document.getElementById('simErrorBanner').style.display = 'none';
+        document.getElementById('nextBtn').disabled = false;
+
+        // Najpre prebaci ekran, pa tek onda renderiraj — redosled je bitan!
+        // (sprečava scrollIntoView da "povuče" body pre animacije)
+        showSim();
+        renderSimState(data.state);
+
+      } catch (err) {
+        alert('Greška pri inicijalizaciji simulatora: ' + err.message);
+      }
+    }
+
+    document.getElementById('nextBtn').addEventListener('click', async () => {
+      if (!simSessionId) return;
+      try {
+        const resp = await fetch('/simulate/step/' + simSessionId, { method: 'POST' });
+        if (!resp.ok) {
+          const err = await resp.json();
+          alert('Greška: ' + (err.detail || 'Nepoznata greška'));
+          return;
+        }
+        const data = await resp.json();
+        renderSimState(data.state);
+      } catch (err) {
+        alert('Greška koraka: ' + err.message);
+      }
+    });
+
+    document.getElementById('goBackBtn').addEventListener('click', () => {
+      showCompiler();
+      simSessionId = null;
+      prevRegs = null;
+    });
+
+    // ── Render stanja simulatora ──────────────────────────────────────────────────
+    function renderSimState(st) {
+      if (st.halted) {
+        document.getElementById('nextBtn').disabled = true;
+        if (st.sim_error) {
+          document.getElementById('simErrorBanner').style.display = 'block';
+          document.getElementById('simErrorMsg').textContent = st.sim_error;
+        } else {
+          document.getElementById('haltBanner').style.display = 'block';
+          document.getElementById('exitCodeVal').textContent = st.exit_code !== null ? st.exit_code : '?';
+        }
+      }
+      renderCode(st.source_lines);
+      renderRegisters(st.registers);
+      renderGlobals(st.globals);
+      renderStack(st.stack);
+      prevRegs = st.registers.reg.slice();
+    }
+
+    function renderCode(sourceLines) {
+      const container = document.getElementById('simCode');
+      container.innerHTML = '';
+      let pcIndex = -1;
+
+      sourceLines.forEach((sl, i) => {
+        const row = document.createElement('div');
+        row.className = 'sim-code-line' + (sl.is_pc ? ' pc-line' : '');
+        if (sl.is_pc) pcIndex = i;
+
+        const numEl = document.createElement('div');
+        numEl.className = 'sc-num';
+        numEl.textContent = sl.line_num;
+
+        const arrowEl = document.createElement('div');
+        arrowEl.className = 'sc-arrow';
+        arrowEl.textContent = sl.is_pc ? '►' : ' ';
+
+        const textEl = document.createElement('div');
+        textEl.className = 'sc-text';
+        textEl.textContent = sl.text;
+
+        row.appendChild(numEl);
+        row.appendChild(arrowEl);
+        row.appendChild(textEl);
+        container.appendChild(row);
+      });
+
+      if (pcIndex >= 0) {
+        const lineH = 22; // px, ista kao line-height
+        const targetTop = pcIndex * lineH;
+        const halfHeight = container.clientHeight / 2;
+        container.scrollTop = targetTop - halfHeight + lineH / 2;
+      }
+    }
+
+    function renderRegisters(regs) {
+      document.getElementById('pcVal').textContent = regs.pc;
+      const f = regs.flags;
+      setFlag('flagZ', f.Z); setFlag('flagS', f.S);
+      setFlag('flagC', f.C); setFlag('flagO', f.O);
+
+      const grid = document.getElementById('regGrid');
+      grid.innerHTML = '';
+      const NAMES = ['%0', '%1', '%2', '%3', '%4', '%5', '%6', '%7',
+        '%8', '%9', '%10', '%11', '%12', '%13 (ret)', '%14 (FP)', '%15 (SP)'];
+      for (let i = 0; i < 16; i++) {
+        const cell = document.createElement('div');
+        const changed = prevRegs !== null && prevRegs[i] !== regs.reg[i];
+        cell.className = 'reg-cell' + (changed ? ' changed' : '');
+        cell.innerHTML = '<span class="rname">' + NAMES[i] + '</span>'
+          + '<span class="rval">' + regs.reg[i] + '</span>';
+        grid.appendChild(cell);
+      }
+    }
+
+    function setFlag(id, val) {
+      const el = document.getElementById(id);
+      el.textContent = val;
+      el.className = val ? 'f1' : '';
+    }
+
+    function renderGlobals(globals) {
+      const c = document.getElementById('globalsTable');
+      if (!globals || globals.length === 0) {
+        c.innerHTML = '<div class="empty-note">nema globalnih promenljivih</div>';
+        return;
+      }
+      let html = '<table><tr><th>Ime</th><th>Adresa</th><th>Vrednost</th></tr>';
+      for (const g of globals)
+        html += `<tr><td>${escHtml(g.name)}</td><td>[${g.address}]</td><td>${g.value}</td></tr>`;
+      c.innerHTML = html + '</table>';
+    }
+
+    function renderStack(stack) {
+      const c = document.getElementById('stackTable');
+      if (!stack || stack.length === 0) {
+        c.innerHTML = '<div class="empty-note">stek je prazan</div>';
+        return;
+      }
+      let html = '<table><tr><th>Adresa</th><th>Vrednost</th><th></th></tr>';
+      for (const s of stack) {
+        let note = '';
+        if (s.fp_offset !== null) {
+          if (s.is_fp) note = '<span class="stack-fp">← FP</span>';
+          else note = `<span style="color:var(--text-dim)">FP${s.fp_offset > 0 ? '+' : ''}${s.fp_offset}</span>`;
+        }
+        html += `<tr><td>[${s.address}]</td><td>${s.value}</td><td>${note}</td></tr>`;
+      }
+      c.innerHTML = html + '</table>';
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+  </script>
+</body>
+
+</html>
