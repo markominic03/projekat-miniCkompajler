@@ -58,7 +58,8 @@ def compile_code(req: CompileRequest):
         stdout_out = result.stdout.strip()
         messages   = "\n".join(filter(None, [stderr_out, stdout_out]))
 
-        success = (exit_code == 0) or (128 <= exit_code <= 254)
+        has_lexical_errors = bool(stdout_out)
+        success = not has_lexical_errors and ((exit_code == 0) or (128 <= exit_code <= 254))
 
         if success and os.path.exists(OUTPUT_ASM):
             with open(OUTPUT_ASM, "r") as f:
