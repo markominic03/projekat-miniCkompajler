@@ -736,20 +736,20 @@
           </div>
         </div>
         <div class="editor-panel">
-          <div class="panel-label"><span class="dot out"></span>Asemblerski izlaz</div>
+          <div class="panel-label"><span class="dot out"></span>Asemblerski kod</div>
           <div class="editor-box" id="outputBox">
             <div class="gutter" id="outputGutter">
               <div class="gutter-inner" id="outputLines"></div>
             </div>
             <div id="outputArea">
-              <span class="placeholder">// Ovde ce se prikazati asemblerski kod...</span>
+              <span class="placeholder">// Ovde će se prikazati asemblerski kod...</span>
             </div>
           </div>
         </div>
       </div>
 
       <div class="btn-row">
-        <button id="mainBtn">Compile</button>
+        <button id="mainBtn">Kompajliraj</button>
         <button id="simBtn" class="simulate-btn" style="display:none">Simuliraj</button>
       </div>
     </div>
@@ -763,13 +763,13 @@
     <div class="sim-header">
       <h2>Hipsim <span>Simulator</span></h2>
       <div class="sim-btn-row">
-        <button id="goBackBtn" class="back-btn">&#8592; Go Back</button>
-        <button id="nextBtn" class="next-btn">Sledeca instrukcija &#8594;</button>
+        <button id="goBackBtn" class="back-btn">&#8592; Nazad</button>
+        <button id="nextBtn" class="next-btn">Sledeća instrukcija &#8594;</button>
       </div>
     </div>
 
-    <div id="haltBanner">Program zavrsen. Exit code (%13): <b id="exitCodeVal">?</b></div>
-    <div id="simErrorBanner">Greska simulatora: <b id="simErrorMsg"></b></div>
+    <div id="haltBanner">Program završen. Exit code (%13): <b id="exitCodeVal">?</b></div>
+    <div id="simErrorBanner">Greška simulatora: <b id="simErrorMsg"></b></div>
 
     <div class="sim-body">
 
@@ -888,6 +888,17 @@
       syncGutter(outputArea, 'outputLines');
     }
 
+    function renderError(text){
+      outputArea.innerHTML = '';
+      text.split('\n').forEach(line => {
+        const div = document.createElement('div');
+        div.className = 'asm-line';
+        div.textContent = line === '' ? ' ' : line;
+        outputArea.appendChild(div);
+      });
+      syncGutter(outputArea, 'outputLines');
+    }
+
     // ── Tastatura: TAB + Enter auto-indent ────────────────────────────────────────
     inputCode.addEventListener('keydown', (e) => {
 
@@ -948,14 +959,14 @@
           outputArea.classList.remove('error-text');
           simBtn.style.display = 'inline-block';
         } else {
-          outputArea.innerHTML = '<span class="placeholder">' + escHtml(data.error) + '</span>';
+          renderError(data.error);
           appState = 'error';
           outputBox.classList.add('error-state');
           outputArea.classList.add('error-text');
           simBtn.style.display = 'none';
         }
       } catch (err) {
-        outputArea.innerHTML = '<span class="placeholder">Greška pri komunikaciji sa serverom:\n' + err.message + '</span>';
+        renderError('Greska pri komunikaciji sa serverom:\n' + err.message);
         appState = 'error';
         outputBox.classList.add('error-state');
         outputArea.classList.add('error-text');
@@ -965,7 +976,7 @@
       syncGutter(outputArea, 'outputLines');
       inputCode.readOnly = true;
       mainBtn.disabled = false;
-      mainBtn.textContent = 'Try Again';
+      mainBtn.textContent = 'Pokušaj ponovo';
       mainBtn.className = 'try-again';
     }
 

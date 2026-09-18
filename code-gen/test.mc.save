@@ -1,0 +1,13 @@
+xint veci(int a) {
+   int prag;
+   prag = 100;
+
+   if (a > prag)
+      return a;
+   else
+      return prag;
+}
+
+int main() {
+   return veci(250);
+}

@@ -1,7 +1,11 @@
-int main(){
-    int a;
-    int b;
-    a = 1;
-    b = 2;
-    return a+b;
+int duplo(int x) {
+   return x + x;
+}
+
+int uvecaj(int y) {
+   return duplo(y) + 1;
+}
+
+int main() {
+   return uvecaj(5);
 }

@@ -96,7 +96,7 @@ class Simulator:
         """Upisuje int32 na adresu"""
         if address < 0 or address + 3 >= MEM_SIZE:
             raise SimError(f"Adresa izvan opsega memorije: {address}")
-        struct.pack_into('<i', self.datamem, address, _to_word(value) & 0xFFFFFFFF)
+        struct.pack_into('<i', self.datamem, address, _to_word(value))
 
     # Operandi
 
@@ -365,6 +365,11 @@ def _parse_operand(token, symtab, label_map):
     if m:
         return (OP_INDIRECT, int(m.group(1)), 0)
 
+    # Adresa globalne promenljive: $ime (_ADDRESS u hipsim.y)
+    m = re.match(r'^\$([@_A-Za-z]\w*)$', token)
+    if m and m.group(1) in label_map:
+        return (OP_CONSTANT, 0, symtab[label_map[m.group(1)]]['address'])
+
     # Labela: @fun_exit ili fun (za CALL/JMP)
     if token in label_map:
         return (OP_DATA, 0, label_map[token])
@@ -372,7 +377,7 @@ def _parse_operand(token, symtab, label_map):
     return None
 
 
-def _parse_instruction(line, label_map):
+def _parse_instruction(line, label_map, symtab):
     """Parsira jednu instrukciju iz ASM linije."""
     line = line.strip()
     if not line:
@@ -395,9 +400,10 @@ def _parse_instruction(line, label_map):
     operands = []
     if ops_str:
         for tok in ops_str.split(','):
-            op = _parse_operand(tok.strip(), None, label_map)
-            if op is not None:
-                operands.append(op)
+            op = _parse_operand(tok.strip(), symtab, label_map)
+            if op is None:
+                raise SimError(f"Nepoznat operand '{tok.strip()}' u liniji: {line}")
+            operands.append(op)
 
     return {'inst': inst_code, 'type': inst_type, 'operands': operands}
 
@@ -490,7 +496,7 @@ def parse_asm(asm_text):
         elif item[0] == 'instr':
             text = item[1]
             sim.source.append({'text': '\t' + text, 'address': code_idx})
-            inst = _parse_instruction(text, label_map)
+            inst = _parse_instruction(text, label_map, sim.symtab)
             if inst is None:
                 return None, f"Greška pri parsiranju instrukcije: '{text}'"
             sim.codemem.append(inst)
