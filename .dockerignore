@@ -1,0 +1,11 @@
+.git
+__pycache__/
+*.pyc
+venv/
+code-gen/micko
+code-gen/hipsim
+code-gen/*.tab.c
+code-gen/*.tab.h
+code-gen/lex.yy.c
+code-gen/*.output
+code-gen/output.asm
