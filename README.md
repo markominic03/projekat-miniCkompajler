@@ -19,7 +19,7 @@ unutar kontejnera.
 docker compose up --build
 ```
 
-Zatim u veb-pregledaču otvori **http://localhost:8000**.
+Zatim u veb-pregledaču otvoriti **http://localhost:8000**.
 
 > U ispisu servera piše `http://0.0.0.0:8000`. To je adresa na kojoj server
 > sluša unutar kontejnera, a ne adresa koja se otvara u veb-pregledaču.
@@ -39,10 +39,10 @@ python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
 
 ## Korišćenje
 
-1. U levo polje unesi miniC kod i klikni **Kompajliraj**.
+1. U levo polje uneti miniC kod i kliknuti **Kompajliraj**.
 2. U desnom polju se prikazuje generisani asemblerski kod. Ako kod sadrži
-   greške, umesto njega se prikazuju poruke o greškama sa brojem linije.
-3. Klikni **Simuliraj**, pa **Sledeća instrukcija** za svaki korak simulacije.
+   greške, umesto njega se prikazuju poruke o greškama sa brojem linije koda gde se greska nalazi.
+3. Kliknuti **Simuliraj**, pa **Sledeća instrukcija** za svaki korak simulacije.
    Prate se registri, statusni flegovi i stek, a na kraju se ispisuje
    povratna vrednost `main` funkcije.
 
