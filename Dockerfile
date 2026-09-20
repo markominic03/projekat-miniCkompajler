@@ -13,7 +13,7 @@ WORKDIR /app/code-gen
 COPY code-gen/ .
 RUN make
 
-# --- Stage 2: runtime (samo Python + skompajlirani binarni fajl) ---
+# --- Stage 2: runtime (samo Python + kompajlirani binarni fajl) ---
 FROM python:3.12-slim
 
 WORKDIR /app

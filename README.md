@@ -73,6 +73,10 @@ oduzimanje i relacione operatore.
 
 ## Struktura projekta
 
+Direktorijum `code-gen/` preuzet je nepromenjen sa vežbi predmeta. Autorski
+deo ovog rada je integracija u veb-okruženje, odnosno sve u `backend/` i
+pokretanje u Docker kontejneru.
+
 | Putanja | Namena |
 |---|---|
 | `code-gen/micko.l` | Flex lekser |
@@ -105,7 +109,15 @@ vrednost pokazivača na vrh steka je 1024. Mašina ima 16 registara od 32 bita:
 | `%14` | Pokazivač na stek frejm |
 | `%15` | Pokazivač na vrh steka |
 
-## Licenca
+## Licenca i poreklo koda
 
-Datoteke u `code-gen/hipsim-src/` potiču iz HipSim projekta (Žarko Živanov)
-i licencirane su pod GPL3 licencom (`code-gen/hipsim-src/gpl.txt`).
+Direktorijum `code-gen/` sadrži Micko kompajler, preuzet nepromenjen sa vežbi
+predmeta Programski prevodioci na FTN-u, i u `code-gen/hipsim-src/` originalni
+HipSim simulator (Žarko Živanov), koji je pod GPL3 licencom
+(`code-gen/hipsim-src/gpl.txt`). Prava na te datoteke pripadaju njihovim
+autorima.
+
+Autorski deo ovog projekta (`backend/`, `Dockerfile`, `docker-compose.yml`,
+`requirements.txt`) licenciran je pod GPL3 licencom (`LICENSE`). Datoteka
+`backend/simulator.py` je reimplementacija HipSim simulatora, pa preuzima
+njegovu GPL3 licencu.
